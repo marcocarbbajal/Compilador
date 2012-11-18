@@ -1,0 +1,108 @@
+--****************Mi Programa*************************************
+Procedure Main ( x,c,h: in out boolean ) is 
+ 
+   w:Boolean;
+ 
+   type A is array (5..20) of Float;
+     
+   entero:Integer;
+   entero2:integer;
+   
+	
+--*************Procedimiento anidado****************
+	Procedure Main1  is 
+          
+
+	w:float;
+ 	w9:Integer;
+      
+		--*************Función anidada****************
+		Function Main2 ( x,c,h: in Integer ; f: in Float) return Integer is 
+		            w2:integer;  w8:float;   wt:boolean;
+
+			--*************Función anidada****************
+			Function Main3 ( x,c,h: in Integer) return Float is 
+
+              			    	w2:integer;
+				decimal:float;
+				type B is array (5..10,5..10) of Integer;
+
+				arreglo : array (1..5) of Integer;
+				mibandera : boolean;
+                  			   	 wx : A ;
+    				 wy:B;
+                               		  begin
+				Main1;
+                                  		            w:=Main3(w2,w2,w2);
+			            w:=Main3(w2,w2,Main2(3,3,w2,Main3(w2,w2,w2)));
+		                                    PUT("Hola Mundo");
+		                                    wx(9):=w+3.3;
+                   			            w2:=3+w2+wy(6,Main2(w2,w2,w2,Main3(w2,w2,w2)));
+			           mibandera := Main4(true);
+			return decimal;
+	
+			end Main3;
+
+			--*************Función anidada****************
+              			 Function Main4 (t: in boolean) return boolean is 
+              			
+				entero:Integer;
+                                                                            	ww:A;
+ 			                        wm:boolean;        wt : float;
+                  			  
+                     			    begin
+                            
+
+			 	-- Main2(w2,w2,w2,w);
+			--***************Ciclo If *******************	
+                     				if(wm=false) then  
+				wt:=3.14*wt;
+			 	return true;
+				else
+				wt:=wt*wt;
+				return false;
+				end if;
+
+			return true;
+			end Main4;
+
+
+		begin
+		       
+		  get(w);
+		
+     		w:=Main3(3,3,3);
+  	                        return 3;          
+		end Main2;
+
+	begin
+	
+   	          w:=3.3;
+	          PUT("Hola Mundo");
+                   end Main1;
+
+begin
+      x:=true;
+      entero2:=1000;
+    loop
+            entero:=entero+1;
+  	 while (w = true ) loop	 
+  	 entero2:=entero2 - 1;
+  	if(w=false) then  
+  	entero:=entero+1;
+	w:= true;
+	else
+	entero:=entero+2;
+	w:= false;
+	end if;
+
+         end loop;
+
+        exit when (entero > entero2);
+  end loop ;
+
+end Main;
+
+
+
+

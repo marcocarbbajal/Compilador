@@ -1,0 +1,1458 @@
+package Lexico_Sintactico_Semantico;
+import java_cup.runtime.*;
+import java.io.*;
+import java.lang.*;
+import java.util.*;
+import javax.swing.*;
+
+ 
+
+
+
+
+
+
+parser code {:  
+
+
+
+    public void unrecovered_syntax_error(Symbol s)
+    {
+    
+        System.out.println("Error de Sintaxis grave. Error Desconocido. Compilacion Detenida");
+        interfaz.resultado=interfaz.resultado+"Error de Sintaxis grave. Error Desconocido. Compilacion Detenida";
+    
+    }
+
+    public void syntax_error(Symbol cur_token)
+    {
+        int linea = ( (Tokens)(cur_token.value) ).getFila();
+        int columna = ( (Tokens)(cur_token.value) ).getColumna();
+        String mensaje = new String("");
+        if(cur_token.sym == 0)
+        {
+            mensaje = "\nERROR: Error sintactico, no se esperaba el token: (EOF), Linea: "
+                        + linea
+                        + ", Columna: "
+                        + columna
+                        + "\n" ;
+        }
+        else 
+        {
+            mensaje = "\nERROR: Error sintactico, no se esperaba el token: ("
+                        + ( (Tokens)(cur_token.value) ).getIdentificador()
+                        + "), Linea: "
+                        + linea
+                        + ", Columna: "
+                        + columna
+                        + "\n";
+        }
+        System.out.println(mensaje);
+         interfaz.resultado=interfaz.resultado+mensaje;
+    
+       
+    }
+            
+:};
+
+action code{:
+
+//********************************Tabla de Simbolos*****************************
+static  ArrayList <Integer>llinea = new ArrayList();
+static  ArrayList <Integer>lcolumna = new ArrayList();
+static Object n1=null,n2=null,n3=null,n4=null;
+static Integer profundidad = 0;
+static Integer offset = 0;
+static Integer an1 = 0;
+static Integer an2 = 0;
+static Integer an3 = 0;
+static Integer an4 = 0;
+//*************************************Simbolos*******************************************
+static ArrayList tipopara = new ArrayList();
+static ArrayList nombreid = new ArrayList();
+static String tipo_return ="";
+static String tipotemp="";
+static String paratemp="";
+static String metodo="";
+static int lineatemp=0;
+static int columnatemp=0;
+static int dimension =0;
+static int dms = 0;
+//**********************Ambito***************************************
+     static ArrayList AmbitoPila = new ArrayList();
+     static ArrayList AmbitoLista = new ArrayList();
+     static String nombreAmbito = "";
+     static String ambitoActual = "";
+//***************************AmbitoPadre***************************************
+     private static ArrayList nombrePadre = new ArrayList();
+     private static ArrayList Actual = new ArrayList();
+     private static ArrayList siguiente = new ArrayList();
+     private static ArrayList siguientetemp = new ArrayList();
+     private static String nombreAmbitoPadre = "";
+     private static String ambitoPadre1 = "";
+      
+    public static boolean verificarSiExisteElemento(String elemento){
+         for (int i = interfaz.lnombre.size()-1; i>= 0;i--)
+        {
+            if (elemento.equals(interfaz.lnombre.get(i).toString())){
+                return true;
+            }
+        }
+        return false;
+    }
+      public static boolean verificarSiExisteElementoVariable(String elemento){
+         for (int i = interfaz.lnombre.size()-1; i>= 0;i--)
+        {
+            if (elemento.equals(interfaz.lnombre.get(i).toString())&& interfaz.ldimension.get(i).toString().equals("0")  ){
+              //  JOptionPane.showMessageDialog(null, elemento+"---->"+interfaz.ldimension.get(i));
+                    return true;
+            }
+        }
+        return false;
+    }
+
+                 public static boolean verificarSiExisteElementoProcedimiento(String elemento){
+         for (int i = interfaz.lnombre.size()-1; i>= 0;i--)
+        {
+            if (elemento.equals(interfaz.lnombre.get(i).toString())&&(interfaz.ltipo.get(i).toString().equalsIgnoreCase("Procedure")==false||interfaz.ltipo.get(i).toString().equalsIgnoreCase("Function")==false) && (interfaz.ldimension.get(i).toString().equals("1") || interfaz.ldimension.get(i).toString().equals("2"))  ){
+                return true;
+            }
+        }
+        return false;
+    }
+    public static int obtenerIndice(String elemento){
+         int indice = 0;
+         boolean bandera = false;
+        for (int i = 0;i<=interfaz.lnombre.size()-1;i++)
+        {  
+            if (elemento.equals(interfaz.lnombre.get(i).toString())&&bandera==false){
+                indice = i;
+                bandera = true;
+            }
+            else if (elemento.equals(interfaz.lnombre.get(i).toString())&&alcanceAmbito(ambitoActual,interfaz.lambito.get(i).toString())==true&&bandera==true&&alcanceAmbito(interfaz.lambito.get(i).toString(),interfaz.lambito.get(indice).toString())==true){
+                    indice = i;
+            }
+            else{}
+        }
+        System.out.print("Variable:"+interfaz.lnombre.get(indice).toString()+"  Ambito: "+interfaz.lambito.get(indice).toString()+"\n");
+        return indice;
+  }
+    
+        public static boolean alcanceAmbito(String grande, String pequeno)
+        {//JOptionPane.showMessageDialog(null,"grande es : "+grande+"    pequeño es :"+pequeno);
+            if (grande.contains(pequeno) || grande.equals(pequeno)){
+               // JOptionPane.showMessageDialog(null,"grande o igual");
+                    return true;
+            }
+           //     JOptionPane.showMessageDialog(null,"NO ES");
+            return false;
+         }
+
+//*****************************Funcion Ambito Padre *******************************************
+public static void ambitoPadre(String nombreToken)
+{      
+          if (Actual.size()==0){
+              nombrePadre.add(nombreToken);
+              ambitoPadre1 = ambitoPadre1 + nombrePadre.get(nombrePadre.size()-1);
+              siguiente.add(ambitoPadre1);
+              Actual.add(ambitoPadre1);
+              System.out.println("Token "+nombrePadre.get(nombrePadre.size()-1)+"   Ambito: "+ambitoPadre1);
+          }
+          else{
+            
+                   nombreAmbitoPadre = nombreToken;
+                   
+                            
+                            nombrePadre.add(nombreAmbitoPadre);
+                            Actual.add(siguiente.get(siguiente.size()-1));
+                            siguiente.add(siguiente.get(siguiente.size()-1)+"."+nombreAmbitoPadre);
+                            siguientetemp.add(siguiente.get(siguiente.size()-1));
+                            ambitoPadre1 = Actual.get(Actual.size()-1).toString();
+                            System.out.println("Token "+nombrePadre.get(nombrePadre.size()-1)+"   Ambito: "+ambitoPadre1);                      
+  
+         }
+        
+ }  
+public static void BeginPadre()
+    {
+            siguiente.remove(siguiente.size()-1);
+            System.out.print("\n"+siguiente.get(siguiente.size()-1)+"\n");
+    }
+        
+        
+        
+    public static boolean verificarSiExistePadre(String ambito)
+{
+        for (int i =siguientetemp.size()-1;i>=0;i--)
+        {
+            if (siguientetemp.get(i).equals(ambito))
+            {
+                return true;
+            }
+            
+        }
+        return false;
+}
+
+//***************************************Ambito Hijas********************************************
+public void getambito(String nombre)
+{
+
+                 if (AmbitoPila.size()==0){
+                              ambitoActual = ambitoActual + nombre;
+                              AmbitoLista.add(ambitoActual);
+                              AmbitoPila.add(ambitoActual);
+                        //JOptionPane.showMessageDialog(null,"entro");
+                          }
+                else {
+
+                           if (verificarSiExiste(ambitoActual +"." +nombre)==true){
+                              // interfaz.resultado="Procedure o Function Dupliada2"; 
+                                    ambitoActual = ambitoActual +"." +nombre;
+                                    AmbitoLista.add(ambitoActual);
+                                    AmbitoPila.add(ambitoActual);
+                                }
+                           else{
+                                    ambitoActual = ambitoActual +"." +nombre;
+                                    AmbitoLista.add(ambitoActual);
+                                    AmbitoPila.add(ambitoActual);
+                            //JOptionPane.showMessageDialog(null,"entro");
+                                   }
+               }
+
+ }
+
+public void begin()
+{
+            if(!AmbitoPila.isEmpty()){
+            //JOptionPane.showMessageDiialog(null,"salio");
+                AmbitoPila.remove(AmbitoPila.size()-1);
+                ambitoActual = AmbitoPila.get(AmbitoPila.size()-1).toString();}
+                       }
+            public static boolean verificarSiExiste(String ambito){
+                    for (int i =AmbitoLista.size()-1;i>=0;i--)
+                    {
+                        if (AmbitoLista.get(i).equals(ambito))
+                        {
+                            return true;
+                        }
+
+                    }
+                    return false;
+}
+          public static void variableDuplicada(Object id)
+        {
+            int indiceId = obtenerIndice(((Tokens) id).getIdentificador());
+           // JOptionPane.showMessageDialog(null,"entro--->"+((Tokens) id).getIdentificador());
+            
+                for (int i = 0;i<=interfaz.lambito.size()-1;i++){
+                    if (interfaz.lambito.get(i).toString().equals(interfaz.lambito.get(indiceId))&&indiceId!=i&&interfaz.lnombre.get(indiceId).equals(interfaz.lnombre.get(i)))
+                    { 
+                    //JOptionPane.showMessageDialog(null,"entro a if ");
+                  
+     interfaz.resultado=interfaz.resultado+("\nError Semantico en la Linea "+((Tokens) id).getFila()+", Columna "+((Tokens) id).getColumna()+" (Variable duplicada)\n");                   
+                                  System.out.println("Variable Repetida: "+interfaz.lnombre.get(i)+" con "+interfaz.lnombre.get(indiceId)+"\n");
+                    }
+                }
+         }  
+
+ 
+
+//**************************************limpiar variables********************************************************
+public void limpiar(){
+             tipopara.clear();
+            nombreid.clear();
+            tipo_return ="";
+            tipotemp="";
+            paratemp="";
+            metodo="";
+            dimension =0;
+            AmbitoPila.clear();
+            AmbitoLista.clear();
+            nombreAmbito = "";
+            ambitoActual = "";
+            AmbitoPila = new ArrayList();
+
+}
+//*****************iniciar variables**********************************************
+ public void inicializarvariables()
+{
+            interfaz.ltipo = new ArrayList();
+            interfaz.lnombre = new ArrayList();
+            interfaz.lparametro = new ArrayList();
+            interfaz.ldimension = new ArrayList();
+            interfaz.ltipopar = new ArrayList();
+            interfaz.ltiporeturn = new ArrayList();
+             interfaz.lambito = new ArrayList();
+            llinea = new ArrayList();
+            lcolumna = new ArrayList();
+             nombrePadre = new ArrayList();
+            Actual = new ArrayList();
+            siguiente = new ArrayList();
+            siguientetemp = new ArrayList();
+            nombreAmbitoPadre = "";
+            ambitoPadre1 = "";
+            interfaz.larreglo= new ArrayList();
+            profundidad = 0;
+//**********************Ambito***************************************
+     AmbitoPila = new ArrayList();
+     AmbitoLista = new ArrayList();
+     nombreAmbito = "";
+     ambitoActual = "";
+//***************************AmbitoPadre***************************************
+     ArrayList nombrePadre = new ArrayList();
+     ArrayList Actual = new ArrayList();
+     ArrayList siguiente = new ArrayList();
+     siguientetemp = new ArrayList();
+String nombreAmbitoPadre = "";
+String ambitoPadre1 = "";
+
+}
+
+
+:};
+
+
+/*Palabras reservadas*/
+terminal ID,ARRAY,BOOLEAN,FLOAT,ENTERO,NUMERO,REAL,OF,IGUAL;
+terminal PROCEDURE,FUNCTION,IS,BEGIN,END,RETURN;
+terminal FOR,IN,LOOP,OUT,INOUT,PUT,GET;
+terminal MAS,MENOS,POR,ENTRE,TRUE,FALSE,TYPE;
+
+/*Simbolos*/
+terminal PAR1,PAR2,PUNTO,FIN,COMA,DOSPUNTOS,COMILLA,NEWLINE;
+terminal IF,ELSE, THEN, MAYOR, MENOR, MAYORIGUAL, MENORIGUAL,NOT;
+terminal AND,OR,DISTINTO,EXIT,WHEN,WHILE; 
+
+/*Producciones*/
+non terminal declaracion,declaracion2,declaracion_tipo,declaracion_tipo2,declaraciones,procedimiento2sig,procedimientoa21sig;
+non terminal declaracion_arreglo, declaracion_arreglo2,declaracion_arreglo3,declaracion_arreglo4,declaracion_arreglo5,programa,procedimientoa,procedimientoa2,procedimientoa21,masvariables;
+non terminal tipo,procedimiento,procedimiento2,procedimientofun,parametros,id,cuerpo,for,asignacion,masvariablesfun;
+non terminal ciclos,expresiones,final,operacion,asignar,boolean,leer_escribir,put2,finlees,operacion2,metodo,asignarsig;
+non terminal declaracion_par,declaracion_tipo2_par,declaracion_tipo_par,par,arreglo,arreglo2;
+non terminal cadena,llamarmetodos,operacion3,operacion4,operacion5,parametrosig,declaracionsig,procedimientofun2,procedimientofun21;
+non terminal condicion,relacion,if,f1,condicion2,while,loop,parentesis,procedimientofunb,parametros_funsig,procedimiento2sig2;
+non terminal llamadaproc,return ,cuerpo2,cuerpofun,if_fun,f1_fun,loop2,loop3, exit,parametros_fun,declaracion_par_fun, declaracion_tipo_par_fun,declaracion_tipo2_par_fun,ff;
+
+/*Precedencia*/
+precedence left MAS, MENOS;
+precedence left POR, ENTRE;
+precedence left IGUAL;
+
+
+start with programa ;
+
+
+
+programa ::= {: inicializarvariables();  limpiar(); :} procedimiento  {: :};
+
+
+
+tipo ::= ENTERO{:RESULT = "Integer";
+         
+            :}|
+         FLOAT {:  RESULT = "Float" ;
+                    
+             :}|  
+
+        BOOLEAN{:RESULT = "Boolean" ;
+     :} ;
+
+id ::= ID:id {: RESULT = id ; :} |
+       NUMERO:t {: RESULT ="null";:} | 
+       REAL:t {: RESULT ="null";  :} | 
+       arreglo:arr {: RESULT = "null"; :} |
+       ID:id PAR1 PAR2 {: RESULT = "null"; :};
+
+par ::= IN {: RESULT = "In"; :} |
+        OUT {: RESULT = "Out"; :} | 
+        INOUT {: RESULT = "In Out"; :} ;
+
+ff ::= IN {:RESULT = "In"; :} ;
+
+boolean ::= TRUE 
+            |FALSE ;
+
+
+relacion ::= MENOR | MAYOR | MENORIGUAL | MAYORIGUAL | IGUAL | DISTINTO | NOT;
+
+final ::= END ID:id FIN {: begin();  BeginPadre();  --profundidad; :}| 
+          END ID error | END error FIN;
+
+arreglo ::=  ID:id   PAR1  arreglo2  PAR2 ; 
+           
+                                
+arreglo2 ::= asignar COMA arreglo2 | asignar ;
+
+/******************************************************** PROCEDIMIENTO ***************************************************************/
+
+    procedimiento ::= PROCEDURE ID:id {: 
+                                         metodo=((Tokens) id).getIdentificador(); 
+                                         lineatemp=((Tokens) id).getFila();
+                                         columnatemp=((Tokens) id).getColumna();
+                                         getambito(metodo.toString()); 
+                                          ambitoPadre(metodo.toString());
+                                          
+                                       :} procedimiento2   |
+
+                  /*********** Produccciones de error **********/
+                  error ID procedimiento2                       |
+                  PROCEDURE error procedimiento2                ;
+                  /*********************************************/
+                    
+procedimientofun21::= cuerpo2 return final | error return final | cuerpo2 error final | cuerpo2 return error; 
+
+procedimientofun2::=  declaraciones BEGIN  procedimientofun21 | 
+                      BEGIN  procedimientofun21 | 
+
+                     /*********** Produccciones de error **********/
+                       error declaraciones BEGIN cuerpo2 return final | 
+                       error cuerpo2 return final ; 
+                     /**********************************************/
+                
+procedimientofun ::=  PAR1 parametros_fun PAR2 RETURN tipo:tp IS 
+                    {:
+                                tipo_return=tp.toString();
+                                
+                                  for(int i=0;i<tipopara.size();i++){
+                                      interfaz.ltipopar.add(tipopara.get(i));
+                                
+                                  System.out.println("entro----"+metodo);}
+                                      interfaz.ltipopar.add("bloque");System.out.println("entro----"+metodo);
+                                  
+                                interfaz.lnombre.add(metodo);
+                                interfaz.larreglo.add("");
+                                llinea.add(lineatemp);
+                                lcolumna.add(columnatemp);
+                                interfaz.ltipo.add("Function");interfaz.lambito.add(ambitoPadre1);interfaz.ltiporeturn.add(tipo_return);  
+                                interfaz.lparametro.add("");interfaz.ldimension.add("");        
+                                tipopara.clear();
+                                interfaz.lprofundidad.add(profundidad);
+                                interfaz.loffset.add(0);
+                                  dimension=0;
+                                  tipo_return="";
+                      :} procedimientofun2 |
+
+                      RETURN tipo:tp IS
+                     {:
+                                tipo_return=tp.toString();   
+
+                                    interfaz.ltipopar.add("no tiene");
+                                    System.out.println("entro----"+metodo);
+                                  
+                                    interfaz.ltipopar.add("bloque");
+                                    System.out.println("entro----"+metodo);
+                                  
+                                interfaz.lnombre.add(metodo);
+                                interfaz.larreglo.add("");
+                                llinea.add(lineatemp);
+                                lcolumna.add(columnatemp);
+                                interfaz.ltipo.add("Function");interfaz.lambito.add(ambitoPadre1);interfaz.ltiporeturn.add(tipo_return);  
+                                interfaz.lparametro.add("");interfaz.ldimension.add("");        
+                                tipopara.clear();
+                                interfaz.lprofundidad.add(profundidad);
+                                interfaz.loffset.add(0);
+                                
+                                dimension=0;
+                                tipo_return="";
+                      :} procedimientofun2 | 
+
+                    /*************************** Produccciones de error *********************************/
+                     error parametros_fun PAR2 RETURN tipo IS declaraciones BEGIN cuerpo return final    |
+                     PAR1 error PAR2 RETURN tipo IS declaraciones BEGIN cuerpo return final              | 
+                     PAR1 parametros_fun PAR2 RETURN error IS declaraciones BEGIN cuerpo return final    | 
+                     PAR1 parametros_fun PAR2 RETURN tipo error declaraciones BEGIN cuerpo return final  | 
+                  
+                     /***********************************************************************************/             
+
+                     /********************* Produccciones de error **************************/
+                     error parametros_fun PAR2 RETURN tipo IS BEGIN cuerpo2 return final     |
+                     PAR1 error PAR2 RETURN tipo IS BEGIN cuerpo2 return final               |                    
+                     PAR1 parametros_fun PAR2 error tipo IS BEGIN cuerpo2 return final       |
+                     PAR1 parametros_fun PAR2 RETURN error IS BEGIN cuerpo2 return final     |
+                     PAR1 parametros_fun PAR2 RETURN tipo error BEGIN cuerpo2 return final   |
+                    /************************************************************************/        
+
+                    /*************Produccciones de error************/
+                    error tipo IS  BEGIN cuerpo2 return final       |
+                    RETURN error IS  BEGIN cuerpo2 return final     |
+                    RETURN tipo error  BEGIN cuerpo2 return final   |
+                 
+                    /***********************************************/
+
+                    /********************Produccciones de error*******************/
+                    error tipo IS declaraciones BEGIN cuerpo2 return final        |
+                    RETURN error IS declaraciones BEGIN cuerpo2 return final      |
+                    RETURN tipo error declaraciones BEGIN cuerpo2 return final    ;
+                    /*************************************************************/
+
+
+/**************************************************** PARAMATEROS DE UN FUNCTION ************************************************************/
+parametros_funsig ::= FIN parametros_fun | FIN error | ;
+
+parametros_fun ::= ID:id declaracion_par_fun
+                   {:           
+                                
+                              nombreid.add(id);
+                             //llinea.add(((Tokens) id).getFila());
+                            //lcolumna.add(((Tokens) id).getColumna());
+                                for(int i=0;i<nombreid.size();i++){
+                                            interfaz.ltipo.add(tipotemp);interfaz.ldimension.add(dimension);interfaz.lambito.add(ambitoActual);        
+                                            interfaz.lparametro.add(paratemp);
+                                            interfaz.lnombre.add(((Tokens)(nombreid.get(i))).getIdentificador());
+                                            interfaz.larreglo.add("");
+                                            llinea.add(((Tokens)(nombreid.get(i))).getFila());
+                                            lcolumna.add(((Tokens)(nombreid.get(i))).getColumna());
+                                            interfaz.ltiporeturn.add(null);
+                                            if(tipotemp.equals("Integer") || tipotemp.equals("Float")){
+                                                interfaz.loffset.add(offset);
+                                                offset += 4 ;
+                                            }else if(tipotemp.equals("Boolean")){
+                                                interfaz.loffset.add(offset);
+                                                offset += 1 ;
+                                               }else{
+                                                interfaz.loffset.add(offset);
+                                                    offset +=((an2-an1)+(an4-an3))*offset;
+                                                    }
+                                                  interfaz.lprofundidad.add(profundidad);
+                                           System.out.println("entro----"+((Tokens)(nombreid.get(i))).getIdentificador());
+                                        interfaz.ltipopar.add("");
+                                        }interfaz.ltipopar.add("bloque");
+                                            an1=0;an2=0;an3=0;an4=0;
+                                            variableDuplicada(id);
+
+                          nombreid.clear(); tipotemp=""; paratemp=""; dimension=0;
+                      :}
+
+                    parametros_funsig |  
+                               
+
+
+                   /*********** Produccciones de error ************/
+                   error declaracion_par_fun FIN parametros_fun    |
+                   ID error FIN parametros_fun                     |
+                   ID declaracion_par_fun error parametros_fun     |
+                   /***********************************************/
+
+                   /** Produccciones de error **/
+                   error declaracion_par_fun    |
+                   ID error                     ;
+                   /****************************/
+                    
+             
+declaracion_par_fun ::= declaracion_tipo_par_fun ;
+
+declaracion_tipo_par_fun ::= declaracion_tipo2_par_fun DOSPUNTOS IGUAL NUMERO |
+                            declaracion_tipo2_par_fun                         |
+
+                             /************ Produccciones de error ************/
+                             declaracion_tipo2_par_fun DOSPUNTOS error NUMERO |
+                             declaracion_tipo2_par_fun DOSPUNTOS IGUAL error  ;
+                             /************************************************/
+
+masvariablesfun::=declaracion_tipo2_par_fun | error ;
+
+declaracion_tipo2_par_fun ::=   COMA ID:id 
+                               {: nombreid.add(id);
+                                    
+                                    //llinea.add(((Tokens) id).getFila());
+                                    //lcolumna.add(((Tokens) id).getColumna());
+                                :}
+                                masvariablesfun
+                                    |
+
+                             DOSPUNTOS ff:para tipo:tp 
+                                  {:  paratemp=para.toString();  tipotemp=tp.toString(); 
+
+                                       for (int i = 0; i < nombreid.size(); i++){
+                                           tipopara.add(tp.toString());
+                                       }
+                                       tipopara.add(tp.toString());
+                                   :}   
+                                 |
+                                       
+                                DOSPUNTOS ff:para ID:id
+                                        {:paratemp=para.toString(); tipotemp=((Tokens) id).getIdentificador();tipopara.add(((Tokens) id).getIdentificador());
+                                for(int i=0;i<nombreid.size();i++){
+                                    tipopara.add(tipotemp);      
+                                     } for(int i = interfaz.lnombre.size()-1 ;i>=0;i--){
+                                        if(tipotemp.toString().equals(interfaz.lnombre.get(i).toString())){
+                                               dimension=Integer.parseInt(interfaz.ldimension.get(i).toString()); break;     
+                                                    }
+                                                    }                    :}    
+                                |
+                               /****** Produccciones de error *******/
+                              error ID declaracion_tipo2_par_fun    |
+                              COMA error declaracion_tipo2_par_fun  |
+                              /*************************************/
+
+                              /****** Produccciones de error *******/
+                              error ff tipo                         |
+                              DOSPUNTOS error tipo                  |
+                              /*************************************/
+
+                              /****** Produccciones de error *******/
+                              DOSPUNTOS ff error                    |
+                              error ff ID                           |
+                              DOSPUNTOS error ID                    ;
+                             /***************************************/
+                              
+
+
+
+                            
+
+
+/*************************************************************** PROCEDIMIENTO ***********************************************************************/
+
+cuerpo2 ::=  expresiones cuerpo2 | for cuerpo2 | if_fun cuerpo2 | while cuerpo2 | loop cuerpo2 |
+             expresiones         | for         | if_fun         | while         | loop         ; 
+
+cuerpofun ::=  expresiones cuerpofun | for cuerpofun | if_fun cuerpofun | while cuerpofun | loop cuerpofun |
+               expresiones           | for           | if_fun           | while           | loop           | 
+               return                ;               
+
+return ::= RETURN FIN                | 
+           RETURN asignar FIN ;
+                    
+
+procedimiento2sig ::= cuerpo END ID:id FIN 
+ | error END ID FIN  | cuerpo error ID  | cuerpo END error FIN  |cuerpo END ID error;
+
+
+procedimiento2sig2 ::= declaraciones BEGIN   procedimiento2sig | 
+                       BEGIN   procedimiento2sig | 
+                    
+                    error BEGIN procedimiento2sig | 
+                    error procedimiento2sig;
+                        
+
+procedimiento2 ::= PAR1 parametros PAR2 IS 
+                    {:           for(int i=0;i<tipopara.size();i++){
+                                      interfaz.ltipopar.add(tipopara.get(i));System.out.println("entro----"+metodo);
+                                  }
+                                  interfaz.ltipopar.add("bloque");    
+                                  
+                               interfaz.lnombre.add(metodo.toString()); interfaz.ltipo.add("Procedure");
+                               interfaz.larreglo.add("");
+                                llinea.add(lineatemp);lcolumna.add(columnatemp);
+                                interfaz.ldimension.add("");interfaz.lambito.add(ambitoPadre1);        
+                                interfaz.lparametro.add("");interfaz.ltiporeturn.add(null);  
+                                tipopara.clear();  
+                                interfaz.loffset.add(0);
+                                interfaz.lprofundidad.add(profundidad);
+                                          
+                                 :}     
+                    procedimiento2sig2   |
+                   
+                   IS  {: 
+                                 
+                                        interfaz.ltipopar.add("no tiene");System.out.println("entro----"+metodo);
+                                  
+                                        interfaz.ltipopar.add("bloque");System.out.println("entro----"+metodo);
+                                  
+                                 interfaz.lnombre.add(metodo.toString());
+                                 interfaz.larreglo.add("");
+                                llinea.add(lineatemp);
+                                lcolumna.add(columnatemp);
+                                interfaz.ltipo.add("Procedure"); 
+                                interfaz.ldimension.add("");
+                                interfaz.lambito.add(ambitoPadre1);        
+                                interfaz.lparametro.add("");interfaz.ltiporeturn.add(null);  
+                                interfaz.loffset.add(0);
+                                interfaz.lprofundidad.add(profundidad);
+                                          
+                                    tipopara.clear(); 
+                          :} procedimiento2sig2 | 
+
+    
+
+                   /*************** Produccciones de error ******************/
+                   PAR1 error PAR2 IS declaraciones BEGIN cuerpo final       |  
+                     /*********************************************************/
+                   
+                   /************ Produccciones de error *************/
+                   PAR1 error PAR2 IS  BEGIN cuerpo final            |
+                   PAR1 parametros PAR2 error  BEGIN cuerpo final    |
+                   /*************************************************/
+                  
+                   /** Produccciones de error **/
+                   error  BEGIN cuerpo final   ;
+                   /****************************/
+              
+procedimientoa21sig ::= cuerpo final | error final | cuerpo error;
+
+procedimientoa21 ::=declaraciones BEGIN 
+                    {://JOptionPane.showMessageDialog(null,"fin"); 
+                          
+                    :} procedimientoa21sig | 
+
+                    BEGIN  {: //JOptionPane.showMessageDialog(null,"fin");
+                               
+                            :} procedimientoa21sig|
+
+                    error cuerpo final |
+                    error BEGIN cuerpo final  ;
+ 
+                                                              
+procedimientoa2 ::= PAR1 parametros PAR2 IS
+                     {: 
+                         for(int i=0;i<tipopara.size();i++){
+                                      interfaz.ltipopar.add(tipopara.get(i));
+                                          System.out.println("entro----"+metodo.toString()); 
+                                                }
+                                      interfaz.ltipopar.add("bloque");
+                                        System.out.println("entro----"+metodo.toString()); 
+          
+                               interfaz.lnombre.add(metodo.toString());llinea.add(lineatemp);lcolumna.add(columnatemp);
+                               interfaz.larreglo.add("");
+                        interfaz.ltipo.add("Procedure"); interfaz.ldimension.add("");interfaz.lambito.add(ambitoPadre1);        
+                        interfaz.lparametro.add("");interfaz.ltiporeturn.add(null);  
+                         interfaz.loffset.add(0);
+                         interfaz.lprofundidad.add(profundidad);
+                                          
+                        tipopara.clear();  
+                           
+                                
+                    :}    procedimientoa21 |
+
+                    IS {: 
+                                
+                                interfaz.ltipopar.add("no tiene");
+                                 interfaz.ltipopar.add("bloque");
+                                   System.out.println("entro----"+metodo.toString()); 
+          
+                                interfaz.lnombre.add(metodo.toString()); llinea.add(lineatemp);lcolumna.add(columnatemp);
+                                interfaz.larreglo.add("");
+                                interfaz.ltipo.add("Procedure"); interfaz.ldimension.add("");interfaz.lambito.add(ambitoPadre1);        
+                                interfaz.lparametro.add("");interfaz.ltiporeturn.add(null);  
+                                tipopara.clear(); 
+                                interfaz.loffset.add(0);
+                                interfaz.lprofundidad.add(profundidad);
+                         
+                       :}  procedimientoa21  |
+                    
+
+                    /*************** Produccciones de error *******************/
+                    PAR1 error PAR2 IS declaraciones BEGIN cuerpo final        | 
+                                           
+                    /**********************************************************/
+                   
+
+                    /*********** Produccciones de error ************/
+                    PAR1 error PAR2 IS  BEGIN cuerpo final          |
+                    PAR1 parametros PAR2 error  BEGIN cuerpo final  |
+                    
+                    /***********************************************/                 
+                   
+
+                    /** Produccciones de error **/
+                    error  BEGIN cuerpo final    ;
+                     
+                   
+                    /****************************/
+                              
+
+                    /****** Produccciones de error *******/
+                    /*************************************/
+
+
+/******************************************************* DECLARACION DE PARAMETROS *******************************************************************/
+parametrosig ::= FIN parametros| FIN error | ;
+
+
+
+parametros ::= ID:id  declaracion_par
+                {: 
+                              nombreid.add(id);
+                             // llinea.add(((Tokens) id).getFila());
+                              // lcolumna.add(((Tokens) id).getColumna());
+                              int linea=((Tokens) id).getFila();
+                            //   JOptionPane.showMessageDialog(null,linea);
+
+                        for(int i=0;i<nombreid.size();i++){
+                                 interfaz.ltipo.add(tipotemp);interfaz.ldimension.add(dimension);interfaz.lambito.add(ambitoActual);        
+                                    interfaz.lprofundidad.add(profundidad);
+                                  if(tipotemp.equals("Integer") || tipotemp.equals("Float")){
+                                                interfaz.loffset.add(offset);
+                                                offset += 4 ;
+                                            }else if(tipotemp.equals("Boolean")){
+                                                interfaz.loffset.add(offset);
+                                                offset += 1 ;
+                                               }else{
+                                                interfaz.loffset.add(offset);
+                                                    offset +=((an2-an1)+(an4-an3))*offset;
+                                                    }
+                                                  
+                                interfaz.lnombre.add(((Tokens)(nombreid.get(i))).getIdentificador());
+                                interfaz.larreglo.add("");
+                                llinea.add(((Tokens)(nombreid.get(i))).getFila());
+                                lcolumna.add(((Tokens)(nombreid.get(i))).getColumna());
+                                interfaz.lparametro.add(paratemp);interfaz.ltiporeturn.add(null);
+                                  System.out.println("entro----"+((Tokens)(nombreid.get(i))).getIdentificador()); 
+                                  interfaz.ltipopar.add("");
+                                }interfaz.ltipopar.add("bloque");
+                                 an1=0;an2=0;an3=0;an4=0;
+                         nombreid.clear(); ;tipotemp=""; paratemp="";
+                         dimension=0;
+                            variableDuplicada(id);
+                 :}   parametrosig |
+
+               /******** Produccciones de error *******/
+               error declaracion_par FIN parametros    |
+               ID error FIN parametros                 |
+               ID declaracion_par error parametros     |
+               /***************************************/
+              
+               /*Produccciones de error*/
+               error declaracion_par    |
+               ID error                 ;
+               /************************/
+
+declaracion_par ::= declaracion_tipo_par  ;   
+          
+
+declaracion_tipo_par ::= declaracion_tipo2_par DOSPUNTOS IGUAL NUMERO |
+                         declaracion_tipo2_par                        |
+
+                         /*********** Produccciones de error *********/
+                         declaracion_tipo2_par DOSPUNTOS error NUMERO |
+                         declaracion_tipo2_par DOSPUNTOS IGUAL error  ;
+                         /********************************************/
+
+
+
+masvariables::= declaracion_tipo2_par | error ;
+
+
+declaracion_tipo2_par ::= COMA ID:id  
+                            {: 
+                                          nombreid.add(id);
+                                        //   llinea.add(((Tokens) id).getFila());
+                                       //lcolumna.add(((Tokens) id).getColumna());
+                                      //   JOptionPane.showMessageDialog(null, nombreid.size());
+                             :} masvariables |
+
+                             DOSPUNTOS par:para tipo:tp 
+                            {:  
+                                paratemp=para.toString();  tipotemp=tp.toString();
+                                for(int i=0;i<nombreid.size();i++){
+                                    tipopara.add(tp.toString());      
+                                     } 
+                                tipopara.add(tp.toString());   //JOptionPane.showMessageDialog(null,tp.toString());  
+                            
+                            :} |
+                                DOSPUNTOS par:para ID:id
+                            {:paratemp=para.toString(); tipotemp=((Tokens) id).getIdentificador();tipopara.add(((Tokens) id).getIdentificador());
+                                for(int i=0;i<nombreid.size();i++){
+                                    tipopara.add(tipotemp);      
+                                     } for(int i = interfaz.lnombre.size()-1 ;i>=0;i--){
+                                        if(tipotemp.toString().equals(interfaz.lnombre.get(i).toString())){
+                                               dimension=Integer.parseInt(interfaz.ldimension.get(i).toString()); break;     
+                                                    }
+                                                    }
+                                                    :}    
+                                 |
+                            
+                            
+                            /**************** Produccciones de error ***********************/
+                                        error par ID    |  
+                                        DOSPUNTOS error ID |                                        
+                           /***************************************************************/
+                            
+
+                          /**** Produccciones de error *****/
+                          error ID declaracion_tipo2_par    |
+                          COMA error declaracion_tipo2_par  |
+                          /*********************************/
+
+                          /**** Produccciones de error *****/  
+                          error par tipo                    |
+                          DOSPUNTOS error tipo              |   
+                          DOSPUNTOS par error               ;
+                          /*********************************/
+
+
+/**************************************************************** DECLARACION DE VARIABLES ************************************************************/
+
+declaracionsig ::= declaraciones | ;
+
+declaracion ::= TYPE ID:id IS declaracion_arreglo  FIN
+                 
+                 {:interfaz.ltipopar.add("no hay");
+                    interfaz.ltipopar.add("bloque");
+                     nombreid.add(id);
+                      
+                          for(int i=0;i<nombreid.size();i++){
+                            interfaz.lnombre.add(((Tokens)(nombreid.get(i))).getIdentificador());
+                            llinea.add(((Tokens)(nombreid.get(i))).getFila());
+                            lcolumna.add(((Tokens)(nombreid.get(i))).getColumna()); 
+                            interfaz.ltipo.add(tipotemp);interfaz.ldimension.add(dimension);interfaz.lambito.add(ambitoActual);        
+                            interfaz.lparametro.add(""); 
+                            interfaz.ltiporeturn.add(null);      
+                            interfaz.loffset.add(0);
+                            interfaz.lprofundidad.add(profundidad);
+                                          
+                            System.out.println("entro----"+((Tokens)(nombreid.get(i))).getIdentificador());
+                           // interfaz.ltipopar.add("");      
+                            }     nombreid.clear();
+                                  tipotemp="";
+                                  dimension=0;
+                                   an1=0;an2=0;an3=0;an4=0;
+ if(interfaz.ldimension.get(interfaz.ldimension.size()-1).toString().equals("1")){
+                                    if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-3)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }  
+                                        }
+                            if(interfaz.ldimension.get(interfaz.ldimension.size()-1).toString().equals("2")){
+                                if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-3)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }
+                                    
+                                    if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-5)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }
+                                        
+                                        }
+
+                  :}  
+                declaracionsig |
+    
+                ID:id declaracion2 FIN
+                 {:  interfaz.ltipopar.add("no hay");
+                    interfaz.ltipopar.add("bloque");
+                     nombreid.add(id);
+                      
+                          for(int i=0;i<nombreid.size();i++){
+                            interfaz.lnombre.add(((Tokens)(nombreid.get(i))).getIdentificador());
+                            interfaz.larreglo.add("");
+                            llinea.add(((Tokens)(nombreid.get(i))).getFila());
+                            lcolumna.add(((Tokens)(nombreid.get(i))).getColumna()); 
+                            interfaz.ltipo.add(tipotemp);interfaz.ldimension.add(dimension);interfaz.lambito.add(ambitoActual);        
+                            interfaz.lparametro.add("");
+                            if(tipotemp.equals("Integer") || tipotemp.equals("Float")){
+                                                interfaz.loffset.add(offset);
+                                                offset += 4 ;
+                                            }else if(tipotemp.equals("Boolean")){
+                                                interfaz.loffset.add(offset);
+                                                offset += 1 ;
+                                               }else{
+                                                interfaz.loffset.add(offset);
+                                                    offset +=((an2-an1)+(an4-an3))*offset;
+                                                    }
+                                                  interfaz.lprofundidad.add(profundidad);
+                                          
+                            interfaz.ltiporeturn.add(null);                                     
+                            //interfaz.ltipopar.add("");
+                             //     System.out.println("entro----"+((Tokens)(nombreid.get(i))).getIdentificador()
+                            }    an1=0;an2=0;an3=0;an4=0;
+                                  nombreid.clear();
+                                  tipotemp="";
+                                  dimension=0;
+                  :}  
+                declaracionsig    | 
+                    
+                ID:id DOSPUNTOS ARRAY PAR1 NUMERO:n1 PUNTO PUNTO NUMERO:n2 PAR2 OF tipo:tp FIN  
+                {:  nombreid.clear();
+                    interfaz.ltipopar.add("no hay");
+                    interfaz.ltipopar.add("bloque");
+                     nombreid.add(id);
+                      int num1 = Integer.parseInt(((Tokens)n1).getIdentificador());
+                      int num2 = Integer.parseInt(((Tokens)n2).getIdentificador());
+                      interfaz.larreglo.add("bloque");
+                      interfaz.larreglo.add(n2);
+                      interfaz.larreglo.add(n1);
+                      interfaz.larreglo.add("bloque");
+                          for(int i=0;i<nombreid.size();i++){
+                            interfaz.lnombre.add(((Tokens)(nombreid.get(i))).getIdentificador());
+                            llinea.add(((Tokens)(nombreid.get(i))).getFila());
+                            lcolumna.add(((Tokens)(nombreid.get(i))).getColumna()); 
+                            interfaz.ltipo.add(tp.toString());interfaz.ldimension.add("1");interfaz.lambito.add(ambitoActual);        
+                            interfaz.lparametro.add(""); 
+                            interfaz.ltiporeturn.add(null);      
+                            interfaz.lprofundidad.add(profundidad);
+                            System.out.println("entro----"+((Tokens)(nombreid.get(i))).getIdentificador());
+                           // interfaz.ltipopar.add("");      
+                            }     nombreid.clear();
+                                if(tp.equals("Integer") || tp.equals("Float")){
+                                                interfaz.loffset.add(offset);
+                                                offset += (num2-num1)*4 ;
+                                            }else if(tp.equals("Boolean")){
+                                                interfaz.loffset.add(offset);
+                                                offset += (num2-num1)*1 ;
+                                               }                                
+                                  dimension=0;
+                                   an1=0;an2=0;an3=0;an4=0;
+             if(interfaz.ldimension.get(interfaz.ldimension.size()-1).toString().equals("1")){
+                                    if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-3)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }  
+                                        }
+                           else if(interfaz.ldimension.get(interfaz.ldimension.size()-1).toString().equals("2")){
+                                if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-3)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }
+                                    
+                                    if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-5)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }
+                                        
+                                        }
+                                        :} declaracionsig|
+                ID:id DOSPUNTOS ARRAY PAR1 NUMERO:n1 PUNTO PUNTO NUMERO:n2 COMA NUMERO:n3 PUNTO PUNTO NUMERO:n4 PAR2 OF tipo:tp FIN 
+            {:   
+                nombreid.clear();
+                    interfaz.ltipopar.add("no hay");
+                    interfaz.ltipopar.add("bloque");
+                     nombreid.add(id);
+                      int num1 = Integer.parseInt(((Tokens)n1).getIdentificador());
+                      int num2 = Integer.parseInt(((Tokens)n2).getIdentificador());
+                      int num3 = Integer.parseInt(((Tokens)n3).getIdentificador());
+                      int num4 = Integer.parseInt(((Tokens)n4).getIdentificador());
+                      interfaz.larreglo.add("bloque");
+                      interfaz.larreglo.add(n4);
+                      interfaz.larreglo.add(n3);
+                      interfaz.larreglo.add(n2);
+                      interfaz.larreglo.add(n1);
+                      interfaz.larreglo.add("bloque");
+                          for(int i=0;i<nombreid.size();i++){
+                            interfaz.lnombre.add(((Tokens)(nombreid.get(i))).getIdentificador());
+                            llinea.add(((Tokens)(nombreid.get(i))).getFila());
+                            lcolumna.add(((Tokens)(nombreid.get(i))).getColumna()); 
+                            interfaz.ltipo.add(tp.toString());interfaz.ldimension.add("2");interfaz.lambito.add(ambitoActual);        
+                            interfaz.lparametro.add(""); 
+                            interfaz.ltiporeturn.add(null);      
+                            interfaz.lprofundidad.add(profundidad);
+                            System.out.println("entro----"+((Tokens)(nombreid.get(i))).getIdentificador());
+                           // interfaz.ltipopar.add("");      
+                            }     nombreid.clear();
+                                if(tp.equals("Integer") || tp.equals("Float")){
+                                                interfaz.loffset.add(offset);
+                                                offset += ((num2-num1)+(num3-num4))*4 ;
+                                            }else if(tp.equals("Boolean")){
+                                                interfaz.loffset.add(offset);
+                                                offset += ((num2-num1)+(num3-num4))*1 ;
+                                               }                                
+                                  dimension=0;
+                                   an1=0;an2=0;an3=0;an4=0;
+             if(interfaz.ldimension.get(interfaz.ldimension.size()-1).toString().equals("1")){
+                                    if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-3)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }  
+                                        }
+                           else if(interfaz.ldimension.get(interfaz.ldimension.size()-1).toString().equals("2")){
+                                if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-3)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-2)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }
+                                    
+                                    if(Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getIdentificador()) > Integer.parseInt(((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-5)).getIdentificador())){
+                interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getFila()+", Columna"+((Tokens)interfaz.larreglo.get(interfaz.larreglo.size()-4)).getColumna()+" (Indice no esta en el rango)\n";        
+                                           }
+                                        
+                                        }
+                                        
+                                    :} declaracionsig|
+              
+                /****** Produccciones de error ******/ 
+                error DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID error ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS error PAR1 NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY error NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 error PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO error PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO error NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO error PAR2 OF tipo FIN  declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO error OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO PAR2 error tipo FIN declaracionsig| 
+                 ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO PAR2 OF error FIN declaracionsig|
+                /*****************************************************************************/
+
+               /****** Produccciones de error ***********************************************************************/ 
+                error DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID error ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS error PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY error NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 error PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO error PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO error NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO error COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO error NUMERO PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA error PUNTO PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO error PUNTO NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO error NUMERO PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO error PAR2 OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO error OF tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 error tipo FIN declaracionsig|
+                ID DOSPUNTOS ARRAY PAR1 NUMERO PUNTO PUNTO NUMERO COMA NUMERO PUNTO PUNTO NUMERO PAR2 OF error FIN declaracionsig|
+                /*********************************************************************************************************/
+                
+                /****** Produccciones de error ******/ 
+                error declaracion2 FIN declaraciones |
+                ID declaracion2 error declaraciones  |
+                ID error FIN declaraciones           |
+                /************************************/
+
+                
+                /****** Produccciones de error ******/
+                error declaracion2 FIN               |
+                ID error FIN                         |
+                ID declaracion2 error                |
+                /************************************/
+
+                /****** Produccciones de error *******************/ 
+                error ID declaracion_arreglo FIN declaraciones   |
+                TYPE error declaracion_arreglo FIN declaraciones |
+                TYPE ID declaracion_arreglo error declaraciones  |
+                TYPE ID error FIN declaraciones                  |
+                /*************************************************/
+
+                /****** Produccciones de error ******/
+                 error ID declaracion_arreglo FIN   |
+                 TYPE error declaracion_arreglo FIN |
+                 TYPE ID error FIN                  |
+                 TYPE ID declaracion_arreglo error  ;
+                /************************************/
+
+
+declaracion2 ::= declaracion_tipo ;
+                 
+
+declaracion_tipo2 ::= COMA ID:id
+                     {:  interfaz.ltipopar.add("no hay");
+                            nombreid.add(id);
+                            //llinea.add(((Tokens) id).getFila());
+                            //lcolumna.add(((Tokens) id).getColumna());
+                      :} declaracion_tipo2 | 
+
+                      DOSPUNTOS tipo:tp {: tipotemp=tp.toString(); :}
+                        | 
+
+                      DOSPUNTOS ID:tp {: tipotemp=((Tokens) tp).getIdentificador(); 
+                             if ( verificarSiExisteElemento(tipotemp)==false ){
+                                           interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)tp).getFila()+", Columna"+((Tokens)tp).getColumna()+" (El tipo no exitse)\n";        
+                                                             }else{
+                                                                if (alcanceAmbito(ambitoActual,interfaz.lambito.get(obtenerIndice(((Tokens) tp).getIdentificador())).toString())==false){
+                                        interfaz.resultado=interfaz.resultado+"\nError Semantico en la Linea"+((Tokens)tp).getFila()+", Columna"+((Tokens)tp).getColumna()+" (Variable no esta al alcance)\n";        
+                                     }
+                                            dms = (obtenerIndice(tipotemp));
+                                                dimension = Integer.parseInt(interfaz.ldimension.get(dms).toString());
+                                        }    :};
+
+declaracion_tipo ::= declaracion_tipo2 DOSPUNTOS IGUAL NUMERO | 
+                     declaracion_tipo2 ; 
+
+declaracion_arreglo ::= ARRAY PAR1 declaracion_arreglo2 PAR2 OF tipo:tp  {: tipotemp=tp.toString(); :}  |
+                        
+                        /**************** Produccciones de error *****************/
+                        error PAR1 declaracion_arreglo2 PAR2 OF tipo    |
+                        ARRAY error declaracion_arreglo2 PAR2 OF tipo   |
+                        ARRAY PAR1 error PAR2 OF tipo                   |
+                        ARRAY PAR1 declaracion_arreglo2 PAR2 error tipo |
+                        ARRAY PAR1 declaracion_arreglo2 PAR2 OF error   ;
+                        /*********************************************************/
+
+
+                        
+declaraciones ::=  declaracion | procedimientoa ;
+
+
+procedimientofunb ::=declaraciones | error |;
+
+procedimientoa ::=  FUNCTION ID:id 
+                    {: //if (interfaz.ltipopar.get(interfaz.ltipopar.size()-1).toString().equals("no")){interfaz.ltipopar.remove(interfaz.ltipopar.size()-1);}
+                       metodo=((Tokens) id).getIdentificador(); 
+                      lineatemp=((Tokens) id).getFila();
+                      columnatemp=((Tokens) id).getColumna();
+                      getambito(((Tokens) id).getIdentificador());
+                      ambitoPadre(((Tokens) id).getIdentificador()); 
+                      profundidad = profundidad + 1;
+                  //  JOptionPane.showMessageDialog(null,"ambito actual es "+ambitoActual);
+                        :} procedimientofun  procedimientofunb |
+
+                    PROCEDURE ID:id 
+                    {: //if (interfaz.ltipopar.get(interfaz.ltipopar.size()-1).toString().equals("no")){interfaz.ltipopar.remove(interfaz.ltipopar.size()-1);}
+                            metodo=((Tokens) id).getIdentificador(); getambito(((Tokens) id).getIdentificador());
+                          //      JOptionPane.showMessageDialog(null,"ambito actual es "+ambitoActual);
+                            lineatemp=((Tokens) id).getFila();
+                            ambitoPadre(((Tokens) id).getIdentificador());
+                            columnatemp=((Tokens) id).getColumna();
+                            //JOptionPane.showMessageDialog(null,metodo);  
+                            profundidad = profundidad + 1;
+                    :} procedimientoa2   procedimientofunb  |
+
+                    /********** Produccciones de error **********/
+                    FUNCTION error procedimientofun              |
+                    /********************************************/
+                
+                    /********** Produccciones de error **********/
+                    PROCEDURE error procedimientoa2              ;
+                    /********************************************/
+
+
+declaracion_arreglo2::=  NUMERO:n PUNTO PUNTO  declaracion_arreglo3 {: an1 =Integer.parseInt( ((Tokens)n).getIdentificador()  );  interfaz.larreglo.add(n); interfaz.larreglo.add("bloque"); :}    | 
+                         error   PUNTO PUNTO declaracion_arreglo3|
+                         NUMERO  error PUNTO declaracion_arreglo3|
+                         NUMERO PUNTO error  declaracion_arreglo3;
+
+declaracion_arreglo3::=  NUMERO:n {: dimension=1;  an2 =an1 =Integer.parseInt( ((Tokens)n).getIdentificador()  ); interfaz.larreglo.add("bloque");  interfaz.larreglo.add(n); :} | NUMERO:n  COMA declaracion_arreglo4 {: an1 =Integer.parseInt( ((Tokens)n).getIdentificador()  );interfaz.larreglo.add(n); :}|
+
+                        error| error COMA  declaracion_arreglo4 |
+                               NUMERO error  declaracion_arreglo4 ;
+
+declaracion_arreglo4 ::= NUMERO:n PUNTO PUNTO declaracion_arreglo5 {:an3 = an1 =Integer.parseInt( ((Tokens)n).getIdentificador()  ); interfaz.larreglo.add(n); :} |
+
+                        error   PUNTO  PUNTO declaracion_arreglo5 |
+                        NUMERO error PUNTO declaracion_arreglo5 |
+                        NUMERO PUNTO error declaracion_arreglo5 ;
+
+declaracion_arreglo5::= NUMERO:n {: an4=an1 =Integer.parseInt( ((Tokens)n).getIdentificador()  ); interfaz.larreglo.add("bloque"); interfaz.larreglo.add(n);  dimension = 2; :}| error ;
+
+/********************************************************************** CUERPO ***********************************************************************************/
+
+cuerpo ::=  expresiones cuerpo | 
+            ciclos cuerpo      | 
+            expresiones        | 
+            ciclos ;
+
+/******************************************************************** EXPRESIONES *******************************************************************************/
+
+expresiones ::= asignacion {: :} | leer_escribir | llamarmetodos ; 
+                 
+
+put2::= cadena COMILLA PAR2 FIN finlees  {:  :} |
+        cadena error PAR2 FIN finlees|
+        cadena COMILLA error FIN finlees|
+        cadena COMILLA PAR2 error finlees; 
+
+               
+finlees ::=NEWLINE FIN|; 
+leer_escribir ::= GET PAR1 ID:id PAR2 FIN    
+                    |
+                    GET PAR1 arreglo:id  PAR2 FIN   
+                   |
+
+                    GET PAR1 ID:id PAR1 PAR2  PAR2 FIN 
+                     |
+
+
+                   PUT PAR1 COMILLA {:  :}  put2      |
+     
+                    PUT PAR1 ID:id PAR2 FIN finlees    
+                    |
+                    PUT PAR1 arreglo:id  PAR2 FIN finlees   
+                    |
+
+                    PUT PAR1 ID:id PAR1 PAR2  PAR2 FIN finlees
+                     |
+
+
+                  /*************** Produccciones de error **************/
+                  GET error ID PAR2 FIN                             |
+                  GET PAR1 ID error FIN                             |
+                  /*****************************************************/
+                    
+                   /*************** Produccciones de error **************/
+                  GET error arreglo PAR2 FIN                         |
+                  GET PAR1 error PAR2 FIN                            |
+                  GET PAR1 arreglo error FIN                         |
+                  /*****************************************************/
+
+                  /*************** Produccciones de error **************/
+                  GET error ID PAR1 PAR2 PAR2 FIN                       |
+                  GET PAR1 error PAR1 PAR2 PAR2 FIN                     |
+                  GET PAR1 ID error PAR2 PAR2 FIN                       |
+                  GET PAR1 ID PAR1 error PAR2 FIN                       |
+                  GET PAR1 ID PAR1 PAR2 error FIN                       |
+                  /*****************************************************/
+
+
+                  /*************** Produccciones de error **************/
+                  PUT error ID PAR2 finlees                             |
+                  PUT PAR1 ID error finlees                             |
+                  /*****************************************************/
+                    
+                  /**************** Produccciones de error **************/
+                  PUT error arreglo PAR2 finlees                         |
+                  PUT PAR1 error PAR2 finlees                            |
+                  PUT PAR1 arreglo error finlees                         |
+                  /*****************************************************/
+
+                   /*************** Produccciones de error **************/
+                  PUT error ID PAR1 PAR2 PAR2  FIN finlees               |
+                  PUT PAR1 error PAR1 PAR2 PAR2 FIN finlees              |
+                  PUT PAR1 ID error PAR2 PAR2 FIN finlees                |
+                  PUT PAR1 ID PAR1 error PAR2 FIN finlees                |
+                  PUT PAR1 ID PAR1 PAR2 error FIN finlees                |
+                  /*****************************************************/
+
+                  /*************** Produccciones de error **************/
+                  PUT error COMILLA   put2                              |
+                  PUT PAR1 error   put2                                 |
+                  PUT PAR1 COMILLA   error                              ;
+                 /*****************************************************/
+
+cadena::= asignar cadena |  
+          asignar        ;
+
+asignarsig ::= asignar:asi FIN  |
+                error FIN | asignar error  ;
+
+
+
+asignacion ::=  ID:id DOSPUNTOS IGUAL 
+                asignarsig 
+                |
+ arreglo:arr DOSPUNTOS IGUAL asignarsig 
+              |
+
+                /***** Produccciones de error ********/
+                arreglo DOSPUNTOS error asignar FIN   ;
+                /*************************************/
+              
+asignar ::= operacion {: :}  | boolean {: RESULT = "booelan";:} ;
+
+operacion ::= operacion MAS  operacion2      | operacion2 ;
+operacion2 ::= operacion2 MENOS operacion3   | operacion3;
+operacion3 ::= operacion3 POR operacion4     | operacion4 ;
+operacion4 ::= operacion4 ENTRE operacion5   | operacion5;
+operacion5 ::= id:ids ; 
+
+                 
+ /******************************************************* LLAMADAS A PROCEDIMIENTOS Y FUNCIONES *********************************************************/   
+
+
+llamarmetodos ::= metodo FIN  {:      :};
+
+metodo ::=  llamadaproc    ;
+            
+ 
+llamadaproc ::=  arreglo:id   |
+                ID:id  {: :} ;
+
+/************************************************************************ CICLOS ************************************************************************/
+
+ciclos ::= for   |
+           if    |
+           while |
+           loop  ;
+
+/*Condiciones*/
+parentesis ::= PAR1 parentesis PAR2 condicion2 {:         :} |
+               condicion    {:      :}     |
+
+               /**** Produccciones de error ****/
+               error parentesis PAR2 condicion2 |
+               PAR1 error PAR2 condicion2       |
+               PAR1 parentesis error condicion2 ;
+               /********************************/
+
+
+condicion ::= id relacion id condicion2     |
+              ID:id IGUAL boolean condicion2 {: :}   |
+              boolean condicion2            |
+              ID:id       {: :}                     |
+
+              /** Produccciones de error ***/
+              error relacion id condicion2  |
+              ID IGUAL error condicion2     |
+              id relacion error condicion2  ; 
+              /*****************************/
+
+
+
+condicion2 ::= AND  parentesis | 
+               OR parentesis   |  ;
+
+/*If-Else*/
+ if ::= IF parentesis THEN f1           | 
+        IF parentesis THEN cuerpo f1    |
+
+        /**** Produccciones de error ***/
+        IF error THEN cuerpo f1         |
+        IF parentesis error cuerpo f1   |
+        IF parentesis THEN error f1     |
+        IF parentesis THEN cuerpo error ;
+        /*******************************/
+        
+
+ f1 ::= ELSE cuerpo f1 |
+        END IF FIN     |
+        
+        /**Produccciones de error**/
+        ELSE error f1  |
+        END error FIN  |
+        END IF error   ;
+        /**************************/
+
+if_fun ::= IF parentesis THEN cuerpofun f1_fun {:  :}   | 
+
+           /********Produccciones de error********/
+           IF error THEN cuerpofun f1_fun         |
+           IF parentesis error cuerpofun f1_fun   |
+           IF parentesis THEN error f1_fun        |
+           IF parentesis THEN cuerpofun error     ;
+           /**************************************/
+           
+
+ f1_fun ::= END IF FIN             |
+            ELSE cuerpofun f1_fun  |
+
+           /**Produccciones de error**/
+            ELSE error f1_fun      |
+            END error FIN          |
+            END IF error           ;
+          /**************************/
+
+
+/*For*/
+ for ::=  FOR ID:id IN NUMERO PUNTO PUNTO NUMERO LOOP  loop2 END LOOP FIN {: :}   |  
+
+          /****************** Produccciones de error *********************/
+          FOR error IN NUMERO PUNTO PUNTO NUMERO LOOP loop2 END LOOP FIN |
+          FOR ID error NUMERO PUNTO PUNTO NUMERO LOOP loop2 END LOOP FIN |
+          FOR ID IN error PUNTO PUNTO NUMERO LOOP loop2 END LOOP FIN     |
+          FOR ID IN NUMERO error PUNTO NUMERO LOOP loop2 END LOOP FIN    |
+          FOR ID IN NUMERO PUNTO error NUMERO LOOP loop2 END LOOP FIN    |
+          FOR ID IN NUMERO PUNTO PUNTO error LOOP loop2 END LOOP FIN     |
+          FOR ID IN NUMERO PUNTO PUNTO NUMERO error loop2 END LOOP FIN   |
+          FOR ID IN NUMERO PUNTO PUNTO NUMERO LOOP error END LOOP FIN     |        
+          FOR ID IN NUMERO PUNTO PUNTO NUMERO LOOP loop2 error LOOP FIN  |
+          FOR ID IN NUMERO PUNTO PUNTO NUMERO LOOP loop2 END error FIN   |
+          FOR ID IN NUMERO PUNTO PUNTO NUMERO LOOP loop2 END LOOP error  ;
+          /***************************************************************/
+
+/*While*/
+while ::= WHILE parentesis LOOP loop2 END LOOP FIN |
+          
+
+          /********* Produccciones de error **********/
+          WHILE error LOOP loop2 END LOOP FIN        |
+          WHILE parentesis error loop2 END LOOP FIN  |
+          WHILE parentesis LOOP error END LOOP FIN    |
+          WHILE parentesis LOOP loop2 error LOOP FIN |
+          WHILE parentesis LOOP loop2 END error FIN  |
+          WHILE parentesis LOOP loop2 END LOOP error ;
+          /*******************************************/
+          
+
+/*Loop*/
+loop ::= LOOP {: :} loop3;
+loop3 ::= loop2 END LOOP FIN |
+            error END LOOP FIN|
+            loop2 error LOOP FIN|
+            loop2 END error FIN;
+    
+loop2 ::= expresiones loop2 |     
+          expresiones       |
+          ciclos loop2      |
+          ciclos            |
+          exit loop2        |
+          exit              ;
+
+exit ::= EXIT:e WHEN parentesis FIN |
+         EXIT error parentesis FIN|
+         EXIT WHEN error FIN ;
+
+
+
+  
